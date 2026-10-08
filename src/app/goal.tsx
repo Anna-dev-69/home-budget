@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -30,13 +30,13 @@ function NewGoal() {
   const value = parseAmount(target);
   const months = Math.max(1, monthsUntil(deadline));
 
-  const save = () => {
+  const save = async () => {
     if (!name.trim() || value <= 0) {
       haptics.warning();
       shake();
       return;
     }
-    addGoal({ name: name.trim(), target: value, deadline });
+    await addGoal({ name: name.trim(), target: value, deadline });
     haptics.success();
     closeModal();
   };
@@ -95,24 +95,24 @@ function GoalDetails({ goal }: { goal: Goal }) {
   const value = parseAmount(amount);
   const available = accountBalance(state, accountId);
 
-  const deposit = () => {
+  const deposit = async () => {
     if (value <= 0 || value > available) {
       haptics.warning();
       shake();
       return;
     }
-    depositToGoal(goal.id, value, accountId);
+    await depositToGoal(goal.id, value, accountId);
     setAmount('');
     haptics.success();
   };
 
-  const remove = () => {
+  const remove = async () => {
     if (!confirmDelete) {
       haptics.warning();
       setConfirmDelete(true);
       return;
     }
-    deleteGoal(goal.id);
+    await deleteGoal(goal.id);
     closeModal();
   };
 
@@ -143,26 +143,32 @@ function GoalDetails({ goal }: { goal: Goal }) {
       </Card>
 
       <FieldLabel>Пополнить</FieldLabel>
-      <Animated.View style={[styles.depositRow, shakeStyle]}>
-        <TextInput
-          value={amount}
-          onChangeText={(t) => setAmount(t.replace(/[^\d]/g, ''))}
-          placeholder="Сумма, ₽"
-          placeholderTextColor={p.textTertiary}
-          keyboardType="number-pad"
-          style={[styles.input, { flex: 1, backgroundColor: p.card, color: p.text }]}
-          onSubmitEditing={deposit}
-        />
-        <Button title="Внести" icon="add" onPress={deposit} />
-      </Animated.View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 10 }}>
-        {state.accounts.map((a) => (
-          <Chip key={a.id} label={a.name} icon={a.icon} active={a.id === accountId} onPress={() => setAccountId(a.id)} />
-        ))}
-      </ScrollView>
-      <Text style={{ color: value > available ? p.danger : p.textTertiary, fontSize: 12, marginTop: 8 }}>
-        Доступно на счёте: {formatMoney(available)}
-      </Text>
+      {state.accounts.length ? (
+        <>
+          <Animated.View style={[styles.depositRow, shakeStyle]}>
+            <TextInput
+              value={amount}
+              onChangeText={(t) => setAmount(t.replace(/[^\d]/g, ''))}
+              placeholder="Сумма, ₽"
+              placeholderTextColor={p.textTertiary}
+              keyboardType="number-pad"
+              style={[styles.input, { flex: 1, backgroundColor: p.card, color: p.text }]}
+              onSubmitEditing={deposit}
+            />
+            <Button title="Внести" icon="add" onPress={deposit} />
+          </Animated.View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 10 }}>
+            {state.accounts.map((a) => (
+              <Chip key={a.id} label={a.name} icon={a.icon} active={a.id === accountId} onPress={() => setAccountId(a.id)} />
+            ))}
+          </ScrollView>
+          <Text style={{ color: value > available ? p.danger : p.textTertiary, fontSize: 12, marginTop: 8 }}>
+            Доступно на счёте: {formatMoney(available)}
+          </Text>
+        </>
+      ) : (
+        <Button title="Добавить счёт для пополнений" icon="add" onPress={() => router.push('/account')} />
+      )}
 
       {goal.deposits.length > 0 && (
         <>

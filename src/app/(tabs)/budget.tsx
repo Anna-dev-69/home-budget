@@ -13,9 +13,9 @@ import { haptics } from '@/utils/haptics';
 
 export default function BudgetScreen() {
   const p = useTheme();
-  const { state, resetToDemo, clearAll } = useBudget();
+  const { state, clearAll } = useBudget();
   const focus = useFocusKey();
-  const [confirm, setConfirm] = useState<'demo' | 'clear' | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const month = currentMonthKey();
   const summary = budgetSummary(state, month);
 
@@ -28,16 +28,15 @@ export default function BudgetScreen() {
     .sort((a, b) => (spent[b.id] ?? 0) / state.limits[b.id] - (spent[a.id] ?? 0) / state.limits[a.id]);
   const unlimited = expenseCats.filter((c) => !state.limits[c.id]);
 
-  const runConfirmed = (kind: 'demo' | 'clear') => {
-    if (confirm !== kind) {
+  const removeAllData = async () => {
+    if (!confirmClear) {
       haptics.warning();
-      setConfirm(kind);
+      setConfirmClear(true);
       return;
     }
-    if (kind === 'demo') resetToDemo();
-    else clearAll();
+    await clearAll();
     haptics.success();
-    setConfirm(null);
+    setConfirmClear(false);
   };
 
   return (
@@ -148,18 +147,14 @@ export default function BudgetScreen() {
       <SectionHeader title="Данные" />
       <View style={{ gap: 10 }}>
         <Button
-          variant="secondary"
-          icon="refresh"
-          title={confirm === 'demo' ? 'Нажмите ещё раз — данные заменятся' : 'Загрузить демо-данные'}
-          onPress={() => runConfirmed('demo')}
-        />
-        <Button
           variant="danger"
           icon="trash-outline"
-          title={confirm === 'clear' ? 'Нажмите ещё раз, чтобы удалить всё' : 'Очистить все операции и цели'}
-          onPress={() => runConfirmed('clear')}
+          title={confirmClear ? 'Нажмите ещё раз, чтобы удалить всё' : 'Удалить все локальные данные'}
+          onPress={removeAllData}
         />
-        <Text style={{ color: p.textTertiary, fontSize: 12, textAlign: 'center' }}>Данные хранятся только на этом устройстве.</Text>
+        <Text style={{ color: p.textTertiary, fontSize: 12, textAlign: 'center' }}>
+          Счета, операции, лимиты и цели хранятся в локальной SQLite-базе и доступны без интернета.
+        </Text>
       </View>
     </Screen>
   );

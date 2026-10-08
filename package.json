@@ -4,13 +4,13 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
-    "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.27",
     "expo-constants": "~57.0.21",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
     "expo-linking": "~57.0.12",
     "expo-router": "~57.0.25",
+    "expo-sqlite": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -24,14 +24,16 @@
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "workbox-cli": "^7.4.1"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build:web": "expo export -p web && workbox generateSW workbox-config.cjs"
   },
   "private": true,
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"

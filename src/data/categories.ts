@@ -1,4 +1,4 @@
-import type { Account, Category } from './types';
+import type { Category } from './types';
 
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'food', name: 'Продукты', type: 'expense', color: '#2FA36B', icon: 'basket-outline' },
@@ -17,20 +17,3 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'gift', name: 'Подарки', type: 'income', color: '#C08A1E', icon: 'gift-outline' },
   { id: 'other-income', name: 'Другое', type: 'income', color: '#9AA0A8', icon: 'ellipsis-horizontal' },
 ];
-
-export const DEFAULT_ACCOUNTS: Account[] = [
-  { id: 'main', name: 'Основная карта', icon: 'card-outline', initial: 0 },
-  { id: 'salary-card', name: 'Зарплатная карта', icon: 'wallet-outline', initial: 0 },
-  { id: 'cash', name: 'Наличные', icon: 'cash-outline', initial: 0 },
-];
-
-export const DEFAULT_LIMITS: Record<string, number> = {
-  food: 25000,
-  home: 35000,
-  transport: 6000,
-  cafe: 8000,
-  fun: 6000,
-  health: 4000,
-  subs: 1500,
-  clothes: 7000,
-};

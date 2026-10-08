@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -43,27 +43,27 @@ export default function TransactionModal() {
     if (!state.categories.some((c) => c.id === categoryId && c.type === t)) setCategoryId(firstCategory(t));
   };
 
-  const save = () => {
+  const save = async () => {
     if (value <= 0) {
       haptics.warning();
       shake();
       return;
     }
     const payload = { type, amount: value, categoryId, accountId, date, note: note.trim() };
-    if (existing) updateTransaction({ ...existing, ...payload });
-    else addTransaction(payload);
+    if (existing) await updateTransaction({ ...existing, ...payload });
+    else await addTransaction(payload);
     haptics.success();
     closeModal();
   };
 
-  const remove = () => {
+  const remove = async () => {
     if (!existing) return;
     if (!confirmDelete) {
       haptics.warning();
       setConfirmDelete(true);
       return;
     }
-    deleteTransaction(existing.id);
+    await deleteTransaction(existing.id);
     haptics.success();
     closeModal();
   };
@@ -72,6 +72,19 @@ export default function TransactionModal() {
     return (
       <ModalScreen title="Операция">
         <Text style={{ color: p.textSecondary }}>Операция не найдена — возможно, она уже удалена.</Text>
+      </ModalScreen>
+    );
+  }
+
+  if (!state.accounts.length) {
+    return (
+      <ModalScreen title="Новая операция">
+        <View style={{ gap: 14 }}>
+          <Text style={{ color: p.textSecondary, fontSize: 15 }}>
+            Сначала добавьте хотя бы один счёт. Его начальный остаток станет отправной точкой для точного баланса.
+          </Text>
+          <Button title="Добавить счёт" icon="add" onPress={() => router.replace('/account')} />
+        </View>
       </ModalScreen>
     );
   }

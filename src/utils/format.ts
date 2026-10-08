@@ -82,8 +82,9 @@ export function monthShort(key: string): string {
   return MONTHS_SHORT[Number(key.split('-')[1]) - 1];
 }
 
-export function monthGenitive(key: string): string {
-  return MONTHS_GENITIVE[Number(key.split('-')[1]) - 1];
+/** Lowercase month for "за октябрь" / "на октябрь". */
+export function monthAccusative(key: string): string {
+  return MONTHS[Number(key.split('-')[1]) - 1].toLowerCase();
 }
 
 export function dateLabel(iso: string): string {

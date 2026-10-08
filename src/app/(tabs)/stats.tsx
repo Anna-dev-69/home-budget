@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FadeIn, ProgressBar, useFocusKey } from '@/components/anim';
+import { FadeIn, ProgressBar, useFocusKey, useScreenFocused } from '@/components/anim';
 import { BarChart, CumulativeChart, DonutChart } from '@/components/charts';
 import { MonthSwitcher } from '@/components/MonthSwitcher';
 import { Segmented } from '@/components/Segmented';
@@ -17,6 +17,7 @@ export default function StatsScreen() {
   const p = useTheme();
   const { state } = useBudget();
   const focus = useFocusKey();
+  const screenFocused = useScreenFocused();
   const [month, setMonth] = useState(currentMonthKey());
   const [type, setType] = useState<TxType>('expense');
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export default function StatsScreen() {
           ) : (
             <>
               <DonutChart
+                animate={screenFocused}
                 trigger={chartKey}
                 data={totals.map((t) => ({ id: t.category.id, value: t.amount, color: t.category.color }))}
                 selectedId={selectedCat}
@@ -120,6 +122,7 @@ export default function StatsScreen() {
         <SectionHeader title="Доходы и расходы за полгода" />
         <Card>
           <BarChart
+            animate={screenFocused}
             trigger={chartKey}
             data={history.map((h) => ({ label: monthShort(h.key), income: h.income, expense: h.expense }))}
             selected={barIndex}
@@ -140,7 +143,13 @@ export default function StatsScreen() {
         <FadeIn trigger={chartKey} delay={220}>
           <SectionHeader title="Расходы с начала месяца" />
           <Card>
-            <CumulativeChart trigger={chartKey} actual={cumulativeExpenses(state, month)} days={daysInMonth(month)} plan={totalLimit(state)} />
+            <CumulativeChart
+              animate={screenFocused}
+              trigger={chartKey}
+              actual={cumulativeExpenses(state, month)}
+              days={daysInMonth(month)}
+              plan={totalLimit(state)}
+            />
           </Card>
         </FadeIn>
       )}

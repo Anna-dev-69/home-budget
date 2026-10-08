@@ -1,0 +1,19 @@
+{
+  "short_name": "Бюджет",
+  "name": "Домашний бюджет",
+  "description": "Offline-приложение для учёта доходов, расходов, лимитов и целей",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#3B6EF5",
+  "background_color": "#0E0F12"
+}

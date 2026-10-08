@@ -21,19 +21,40 @@ export function useFocusKey(): number {
   return key;
 }
 
+/** Whether the route containing the component is currently visible. */
+export function useScreenFocused(): boolean {
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
+  return focused;
+}
+
 /** 0 → 1 tween restarted whenever `trigger` changes. Drives SVG charts, which can't use the native driver. */
-export function useProgress(trigger: unknown, duration = 900, delay = 0): number {
+export function useProgress(trigger: unknown, duration = 900, delay = 0, enabled = true): number {
   const [state, setState] = useState({ trigger, value: 0 });
   useEffect(() => {
+    if (!enabled) return;
     const value = new Animated.Value(0);
-    const id = value.addListener(({ value: v }) => setState({ trigger, value: v }));
+    let lastUpdate = 0;
+    const id = value.addListener(({ value: v }) => {
+      const now = Date.now();
+      // SVG charts require React renders. Capping them near 30 FPS avoids
+      // saturating the JS thread on Android emulators while staying smooth.
+      if (v < 1 && now - lastUpdate < 32) return;
+      lastUpdate = now;
+      setState({ trigger, value: v });
+    });
     const anim = Animated.timing(value, { toValue: 1, duration, delay, easing: Easing.out(Easing.cubic), useNativeDriver: false });
     anim.start();
     return () => {
       anim.stop();
       value.removeListener(id);
     };
-  }, [trigger, duration, delay]);
+  }, [trigger, duration, delay, enabled]);
   return state.trigger === trigger ? state.value : 0;
 }
 

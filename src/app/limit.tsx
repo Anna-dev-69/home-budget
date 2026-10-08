@@ -26,13 +26,13 @@ export default function LimitModal() {
   const ratio = value > 0 ? spent / value : 0;
   const suggestions = [...new Set([prevSpent, prevSpent * 1.1].map((v) => Math.ceil(v / 500) * 500).filter((v) => v > 0))];
 
-  const save = () => {
+  const save = async () => {
     if (value <= 0) {
       haptics.warning();
       shake();
       return;
     }
-    setLimit(categoryId, value);
+    await setLimit(categoryId, value);
     haptics.success();
     closeModal();
   };
@@ -48,8 +48,8 @@ export default function LimitModal() {
               variant="danger"
               title="Убрать лимит"
               icon="close"
-              onPress={() => {
-                setLimit(categoryId, null);
+              onPress={async () => {
+                await setLimit(categoryId, null);
                 closeModal();
               }}
             />

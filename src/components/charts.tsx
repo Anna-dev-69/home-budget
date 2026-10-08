@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState, type ComponentProps } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { useProgress } from './anim';
@@ -19,6 +19,7 @@ export function DonutChart({
   onSelect,
   centerTop,
   centerValue,
+  animate = true,
 }: {
   data: DonutSlice[];
   size?: number;
@@ -28,9 +29,10 @@ export function DonutChart({
   onSelect?: (id: string | null) => void;
   centerTop: string;
   centerValue: string;
+  animate?: boolean;
 }) {
   const p = useTheme();
-  const progress = useProgress(trigger, 1100);
+  const progress = useProgress(trigger, 1100, 0, animate);
   const c = size / 2;
   const r = (size - stroke - 8) / 2;
   const circ = 2 * Math.PI * r;
@@ -50,6 +52,14 @@ export function DonutChart({
           const segProgress = clamp01((drawn - s.start) / (s.len || 1));
           const selected = selectedId === s.id;
           const dimmed = selectedId && !selected;
+          const handleSelect = onSelect ? () => onSelect(selected ? null : s.id) : undefined;
+          // react-native-svg 15 adds RN responder props to DOM nodes when onPress
+          // is used on web. React 19 warns about those unknown properties.
+          const interactionProps = handleSelect
+            ? Platform.OS === 'web'
+              ? ({ onPress: null, onClick: handleSelect } as unknown as ComponentProps<typeof Circle>)
+              : { onPress: handleSelect }
+            : {};
           return (
             <Circle
               key={s.id}
@@ -63,7 +73,7 @@ export function DonutChart({
               strokeDasharray={`${visible} ${circ}`}
               strokeDashoffset={visible * (1 - segProgress)}
               transform={`rotate(${-90 + (s.start / circ) * 360} ${c} ${c})`}
-              onPress={onSelect ? () => onSelect(selected ? null : s.id) : undefined}
+              {...interactionProps}
             />
           );
         })}
@@ -84,15 +94,17 @@ export function BarChart({
   trigger,
   selected,
   onSelect,
+  animate = true,
 }: {
   data: BarGroup[];
   height?: number;
   trigger: unknown;
   selected: number;
   onSelect: (index: number) => void;
+  animate?: boolean;
 }) {
   const p = useTheme();
-  const progress = useProgress(trigger, 900);
+  const progress = useProgress(trigger, 900, 0, animate);
   const max = Math.max(1, ...data.flatMap((d) => [d.income, d.expense])) * 1.1;
   const ticks = [1, 0.5, 0];
 
@@ -140,16 +152,18 @@ export function CumulativeChart({
   plan,
   height = 150,
   trigger,
+  animate = true,
 }: {
   actual: number[];
   days: number;
   plan: number;
   height?: number;
   trigger: unknown;
+  animate?: boolean;
 }) {
   const p = useTheme();
   const [width, setWidth] = useState(0);
-  const progress = useProgress(trigger, 1200);
+  const progress = useProgress(trigger, 1200, 0, animate);
   const max = Math.max(plan, ...actual, 1) * 1.1;
   const pad = 6;
   const h = height - pad * 2;

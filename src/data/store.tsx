@@ -1,111 +1,203 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
+import { useSQLiteContext } from 'expo-sqlite';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { createDemoState, createEmptyState } from './seed';
-import type { BudgetState, Goal, Transaction } from './types';
+import { readBudgetState } from './database';
+import type { Account, BudgetState, Goal, Transaction } from './types';
 import { todayISO, uid } from '@/utils/format';
 
-const STORAGE_KEY = 'home-budget/state/v1';
-
 export type NewTransaction = Omit<Transaction, 'id' | 'createdAt'>;
-
-type Action =
-  | { type: 'replace'; state: BudgetState }
-  | { type: 'addTx'; tx: NewTransaction }
-  | { type: 'updateTx'; tx: Transaction }
-  | { type: 'deleteTx'; id: string }
-  | { type: 'setLimit'; categoryId: string; amount: number | null }
-  | { type: 'addGoal'; goal: Pick<Goal, 'name' | 'target' | 'deadline'> }
-  | { type: 'depositGoal'; goalId: string; amount: number; accountId: string }
-  | { type: 'deleteGoal'; id: string };
-
-function reducer(state: BudgetState | null, action: Action): BudgetState | null {
-  if (action.type === 'replace') return action.state;
-  if (!state) return state;
-
-  switch (action.type) {
-    case 'addTx':
-      return { ...state, transactions: [...state.transactions, { ...action.tx, id: uid(), createdAt: Date.now() }] };
-    case 'updateTx':
-      return { ...state, transactions: state.transactions.map((t) => (t.id === action.tx.id ? action.tx : t)) };
-    case 'deleteTx':
-      return { ...state, transactions: state.transactions.filter((t) => t.id !== action.id) };
-    case 'setLimit': {
-      const limits = { ...state.limits };
-      if (action.amount && action.amount > 0) limits[action.categoryId] = action.amount;
-      else delete limits[action.categoryId];
-      return { ...state, limits };
-    }
-    case 'addGoal':
-      return { ...state, goals: [...state.goals, { ...action.goal, id: uid(), deposits: [] }] };
-    case 'depositGoal':
-      return {
-        ...state,
-        goals: state.goals.map((g) =>
-          g.id === action.goalId
-            ? { ...g, deposits: [...g.deposits, { id: uid(), amount: action.amount, accountId: action.accountId, date: todayISO() }] }
-            : g,
-        ),
-      };
-    case 'deleteGoal':
-      return { ...state, goals: state.goals.filter((g) => g.id !== action.id) };
-  }
-}
+export type NewAccount = Pick<Account, 'name' | 'icon' | 'initial'>;
 
 type BudgetContextValue = {
   state: BudgetState;
-  addTransaction: (tx: NewTransaction) => void;
-  updateTransaction: (tx: Transaction) => void;
-  deleteTransaction: (id: string) => void;
-  setLimit: (categoryId: string, amount: number | null) => void;
-  addGoal: (goal: Pick<Goal, 'name' | 'target' | 'deadline'>) => void;
-  depositToGoal: (goalId: string, amount: number, accountId: string) => void;
-  deleteGoal: (id: string) => void;
-  resetToDemo: () => void;
-  clearAll: () => void;
+  addTransaction: (tx: NewTransaction) => Promise<void>;
+  updateTransaction: (tx: Transaction) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
+  addAccount: (account: NewAccount) => Promise<string>;
+  updateAccount: (account: Account) => Promise<void>;
+  deleteAccount: (id: string) => Promise<void>;
+  setLimit: (categoryId: string, amount: number | null) => Promise<void>;
+  addGoal: (goal: Pick<Goal, 'name' | 'target' | 'deadline'>) => Promise<void>;
+  depositToGoal: (goalId: string, amount: number, accountId: string) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
+  clearAll: () => Promise<void>;
 };
 
 const BudgetContext = createContext<BudgetContextValue | null>(null);
 
 export function BudgetProvider({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, null);
+  const db = useSQLiteContext();
+  const [state, setState] = useState<BudgetState | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  const refresh = useCallback(async () => {
+    setState(await readBudgetState(db));
+  }, [db]);
 
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        const parsed = raw ? (JSON.parse(raw) as BudgetState) : null;
-        if (!cancelled) dispatch({ type: 'replace', state: parsed?.version === 1 ? parsed : createDemoState() });
+    readBudgetState(db)
+      .then((next) => {
+        if (!cancelled) setState(next);
       })
-      .catch(() => {
-        if (!cancelled) dispatch({ type: 'replace', state: createDemoState() });
+      .catch((reason: unknown) => {
+        if (!cancelled) setError(reason instanceof Error ? reason : new Error(String(reason)));
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [db]);
 
-  useEffect(() => {
-    if (state) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
-  }, [state]);
+  const write = useCallback(
+    async (operation: () => Promise<void>) => {
+      await operation();
+      await refresh();
+    },
+    [refresh],
+  );
 
   const value = useMemo<BudgetContextValue | null>(
     () =>
       state && {
         state,
-        addTransaction: (tx) => dispatch({ type: 'addTx', tx }),
-        updateTransaction: (tx) => dispatch({ type: 'updateTx', tx }),
-        deleteTransaction: (id) => dispatch({ type: 'deleteTx', id }),
-        setLimit: (categoryId, amount) => dispatch({ type: 'setLimit', categoryId, amount }),
-        addGoal: (goal) => dispatch({ type: 'addGoal', goal }),
-        depositToGoal: (goalId, amount, accountId) => dispatch({ type: 'depositGoal', goalId, amount, accountId }),
-        deleteGoal: (id) => dispatch({ type: 'deleteGoal', id }),
-        resetToDemo: () => dispatch({ type: 'replace', state: createDemoState() }),
-        clearAll: () => dispatch({ type: 'replace', state: createEmptyState() }),
+        addTransaction: async (tx) => {
+          await write(async () => {
+            await db.runAsync(
+              `INSERT INTO transactions
+                (id, type, amount, category_id, account_id, date, note, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              uid(),
+              tx.type,
+              tx.amount,
+              tx.categoryId,
+              tx.accountId,
+              tx.date,
+              tx.note,
+              Date.now(),
+            );
+          });
+        },
+        updateTransaction: async (tx) => {
+          await write(async () => {
+            await db.runAsync(
+              `UPDATE transactions
+                 SET type = ?, amount = ?, category_id = ?, account_id = ?, date = ?, note = ?
+               WHERE id = ?`,
+              tx.type,
+              tx.amount,
+              tx.categoryId,
+              tx.accountId,
+              tx.date,
+              tx.note,
+              tx.id,
+            );
+          });
+        },
+        deleteTransaction: async (id) => {
+          await write(async () => {
+            await db.runAsync('DELETE FROM transactions WHERE id = ?', id);
+          });
+        },
+        addAccount: async (account) => {
+          const id = uid();
+          await write(async () => {
+            await db.runAsync(
+              'INSERT INTO accounts (id, name, icon, initial_balance, created_at) VALUES (?, ?, ?, ?, ?)',
+              id,
+              account.name,
+              account.icon,
+              account.initial,
+              Date.now(),
+            );
+          });
+          return id;
+        },
+        updateAccount: async (account) => {
+          await write(async () => {
+            await db.runAsync(
+              'UPDATE accounts SET name = ?, icon = ?, initial_balance = ? WHERE id = ?',
+              account.name,
+              account.icon,
+              account.initial,
+              account.id,
+            );
+          });
+        },
+        deleteAccount: async (id) => {
+          const usage = await db.getFirstAsync<{ count: number }>(
+            `SELECT
+              (SELECT COUNT(*) FROM transactions WHERE account_id = $id) +
+              (SELECT COUNT(*) FROM goal_deposits WHERE account_id = $id) AS count`,
+            { $id: id },
+          );
+          if ((usage?.count ?? 0) > 0) {
+            throw new Error('Нельзя удалить счёт с операциями или пополнениями целей.');
+          }
+          await write(async () => {
+            await db.runAsync('DELETE FROM accounts WHERE id = ?', id);
+          });
+        },
+        setLimit: async (categoryId, amount) => {
+          await write(async () => {
+            if (amount && amount > 0) {
+              await db.runAsync(
+                `INSERT INTO limits (category_id, amount) VALUES (?, ?)
+                 ON CONFLICT(category_id) DO UPDATE SET amount = excluded.amount`,
+                categoryId,
+                amount,
+              );
+            } else {
+              await db.runAsync('DELETE FROM limits WHERE category_id = ?', categoryId);
+            }
+          });
+        },
+        addGoal: async (goal) => {
+          await write(async () => {
+            await db.runAsync(
+              'INSERT INTO goals (id, name, target, deadline, created_at) VALUES (?, ?, ?, ?, ?)',
+              uid(),
+              goal.name,
+              goal.target,
+              goal.deadline,
+              Date.now(),
+            );
+          });
+        },
+        depositToGoal: async (goalId, amount, accountId) => {
+          await write(async () => {
+            await db.runAsync(
+              `INSERT INTO goal_deposits (id, goal_id, amount, account_id, date, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              uid(),
+              goalId,
+              amount,
+              accountId,
+              todayISO(),
+              Date.now(),
+            );
+          });
+        },
+        deleteGoal: async (id) => {
+          await write(async () => {
+            await db.runAsync('DELETE FROM goals WHERE id = ?', id);
+          });
+        },
+        clearAll: async () => {
+          await write(async () => {
+            await db.withTransactionAsync(async () => {
+              await db.runAsync('DELETE FROM goal_deposits');
+              await db.runAsync('DELETE FROM goals');
+              await db.runAsync('DELETE FROM transactions');
+              await db.runAsync('DELETE FROM limits');
+              await db.runAsync('DELETE FROM accounts');
+            });
+          });
+        },
       },
-    [state],
+    [db, state, write],
   );
 
+  if (error) throw error;
   if (!value) return <>{fallback ?? null}</>;
   return <BudgetContext.Provider value={value}>{children}</BudgetContext.Provider>;
 }
