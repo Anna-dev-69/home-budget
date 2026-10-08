@@ -6,35 +6,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="theme-color" content="#3B6EF5" />
     <meta name="description" content="Offline-приложение для учёта домашнего бюджета" />
-    <link rel="manifest" href="/manifest.json" />
     <title>%WEB_TITLE%</title>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', async function () {
-          try {
-            const response = await fetch('/sw.js', { cache: 'no-store' });
-            const contentType = response.headers.get('content-type') || '';
-            const isJavaScript = /(?:java|ecma)script/i.test(contentType);
+      (function () {
+        // Replaced with "/" or "/home-budget" when the static export is prepared.
+        // The comparison token is different so the replacement stays a single occurrence.
+        var raw = '__APP_BASE_PATH__';
+        var base = !raw || raw.indexOf('APP_BASE_PATH') !== -1 ? '/' : raw;
+        if (base.charAt(0) !== '/') base = '/' + base;
+        if (base.charAt(base.length - 1) !== '/') base += '/';
+        window.__APP_BASE__ = base;
+        document.write('<link rel="manifest" href="' + base + 'manifest.json" />');
 
-            if (response.ok && isJavaScript) {
-              await navigator.serviceWorker.register('/sw.js');
-              return;
-            }
+        if (!('serviceWorker' in navigator)) return;
 
-            // Metro returns index.html for /sw.js in development. Remove a
-            // previously installed production worker instead of registering it.
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(registrations.map((registration) => registration.unregister()));
+        var swUrl = base + 'sw.js';
 
-            if (navigator.serviceWorker.controller && !sessionStorage.getItem('service-worker-reset')) {
-              sessionStorage.setItem('service-worker-reset', 'true');
-              window.location.reload();
-            }
-          } catch {
-            // Offline startup can continue with an already installed worker.
+        function reloadForIsolation() {
+          if (window.crossOriginIsolated) {
+            sessionStorage.removeItem('coi-reload');
+            return;
           }
-        });
-      }
+          if (sessionStorage.getItem('coi-reload') === '1') return;
+          sessionStorage.setItem('coi-reload', '1');
+          window.location.reload();
+        }
+
+        fetch(swUrl, { cache: 'no-store' })
+          .then(function (response) {
+            var contentType = response.headers.get('content-type') || '';
+            var isHtml = /text\/html/i.test(contentType);
+            var isJavaScript = /(?:java|ecma)script/i.test(contentType);
+
+            if (!(response.ok && isJavaScript && !isHtml)) {
+              // Metro returns index.html for /sw.js in development. Remove a
+              // previously installed production worker instead of registering it.
+              return navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                return Promise.all(registrations.map(function (registration) { return registration.unregister(); })).then(function () {
+                  if (navigator.serviceWorker.controller && !sessionStorage.getItem('service-worker-reset')) {
+                    sessionStorage.setItem('service-worker-reset', 'true');
+                    window.location.reload();
+                  }
+                });
+              });
+            }
+
+            return navigator.serviceWorker.register(swUrl, { scope: base, updateViaCache: 'none' }).then(function () {
+              if (window.crossOriginIsolated) {
+                sessionStorage.removeItem('coi-reload');
+                return;
+              }
+              navigator.serviceWorker.addEventListener('controllerchange', reloadForIsolation);
+              if (navigator.serviceWorker.controller) reloadForIsolation();
+            });
+          })
+          .catch(function () {
+            // Offline startup can continue with an already installed worker.
+            if (navigator.serviceWorker.controller) {
+              navigator.serviceWorker.register(swUrl, { scope: base, updateViaCache: 'none' });
+            }
+          });
+      })();
     </script>
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
