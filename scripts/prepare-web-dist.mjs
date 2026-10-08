@@ -1,8 +1,15 @@
+import { spawnSync } from 'node:child_process';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const dist = join(root, 'dist');
+
+function run(command, args) {
+  const result = spawnSync(command, args, { cwd: root, stdio: 'inherit' });
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
 
 function normalizeBaseUrl(value) {
   if (!value) return '';
@@ -40,3 +47,16 @@ if (base) {
 }
 
 console.log(`Prepared web dist (base: ${base || '/'}).`);
+
+// workbox-cli injectManifest does not bundle imports. Produce one classic
+// worker script, then inject the precache manifest into self.__WB_MANIFEST.
+run(join(root, 'node_modules/esbuild/bin/esbuild'), [
+  'service-worker/sw-src.js',
+  '--bundle',
+  '--format=iife',
+  '--platform=browser',
+  '--target=es2020',
+  '--define:process.env.NODE_ENV="production"',
+  '--outfile=service-worker/sw.bundled.js',
+]);
+run(process.execPath, [join(root, 'node_modules/workbox-cli/build/bin.js'), 'injectManifest', 'workbox-config.cjs']);

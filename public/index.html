@@ -60,7 +60,8 @@
               if (navigator.serviceWorker.controller) reloadForIsolation();
             });
           })
-          .catch(function () {
+          .catch(function (error) {
+            console.error('Service worker setup failed', error);
             // Offline startup can continue with an already installed worker.
             if (navigator.serviceWorker.controller) {
               navigator.serviceWorker.register(swUrl, { scope: base, updateViaCache: 'none' });
