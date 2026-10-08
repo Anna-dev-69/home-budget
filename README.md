@@ -45,6 +45,16 @@ npx vercel --prod
 
 Vercel использует `vercel.json`: собирает `dist`, включает необходимые SQLite-заголовки `COEP/COOP` и перенаправляет маршруты в SPA. После первого открытия сайта онлайн его можно установить через меню браузера и далее запускать offline.
 
+## GitHub Pages
+
+Пуш в `main` (и ручной запуск workflow) собирает сайт и публикует его Actions-деплоем. Адрес: https://anna-dev-69.github.io/home-budget/
+
+Один раз в репозитории: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Workflow пробует включить Pages сам (`enablement: true`), но штатный `GITHUB_TOKEN` не может создать сайт — этот переключатель обычно нужно выставить вручную.
+
+Сборка Pages задаёт `EXPO_BASE_URL=/home-budget`, поэтому подпуть попадает только в этот артефакт. Локальная и Vercel-сборки без этой переменной остаются на корне домена; `vercel.json` не меняется.
+
+GitHub Pages не умеет отдавать `COOP`/`COEP`. Синхронный мост `expo-sqlite` требует `SharedArrayBuffer`, поэтому тот же Workbox service worker добавляет заголовки `Cross-Origin-Embedder-Policy: credentialless` и `Cross-Origin-Opener-Policy: same-origin` и один раз перезагружает страницу. Отдельный COI-worker не регистрируется: у области видимости может быть только один контролирующий service worker. Для прямых ссылок в артефакт кладётся `404.html` (копия `index.html`) и `.nojekyll`.
+
 Важно: данные локальны для конкретного браузера и устройства. Очистка данных сайта удалит SQLite-базу; синхронизации между устройствами без сервера нет.
 
 ## Анимации
